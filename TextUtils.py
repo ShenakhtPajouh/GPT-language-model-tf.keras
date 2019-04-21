@@ -112,51 +112,41 @@ class TextEncoder(object):
                 texts_tokens.append(text_tokens)
                 
         return texts_tokens
-        
-def encode_dataset(*splits, encoder):
-    encoded_splits = []
-    for split in splits[0]:
-        fields = []
-        for field in split:
-            if isinstance(field[0], str):
-                field = encoder(field)
-            fields.append(field)
-        encoded_splits.append(fields)
-    return encoded_splits
 
-def transform_texts(texts, n_ctx = 512, n_vocab = 40478, encoder = None):
+
+def transform_texts(texts, n_ctx=512, n_vocab=40478, encoder=None, target = 'LM'):
     if encoder == None:
         ENCODER_PATH = 'model/encoder_bpe_40000.json'
         BPE_PATH = 'model/vocab_40000.bpe'
         encoder = TextEncoder(ENCODER_PATH, BPE_PATH)
 
-    tokens = encoder(texts, verbose = False)
+    tokens = encoder(texts, verbose=False)
     n_batch = len(tokens)
+    inputs = np.zeros((n_batch, n_ctx, 2), dtype=np.int32)
+    masks = np.zeros((n_batch, n_ctx), dtype=np.float32)
     
-    inputs = np.zeros((n_batch, n_ctx, 2), dtype = np.int32)
-    masks = np.zeros((n_batch, n_ctx), dtype = np.float32)
+    if target == 'LM':
+        for i, x in enumerate(tokens):
+            if i % 1000 == 0:
+                print(i)
+            token = x[:n_ctx]
+            inputs[i, :len(token), 0] = token
+            masks[i, :len(token)] = 1
+            
+    else:
+        j = 0
+        for i, x in enumerate(tokens):
+            sents = sent_tokenize(texts[i])
+            if len(sents) <= 1:
+                continue
 
-    last_sent_mean = 0.
-    total_len_mean = 0.
-    n = len(tokens)
-    j = 0
-    for i, x in enumerate(tokens):
-        sents = sent_tokenize(texts[i])
-        if len(sents) <= 1:
-            continue
+            x1 = x[:n_ctx]
+            last_sent_len = len(encoder([sents[-1]], verbose = False)[0])
+            l1 = len(x1) - last_sent_len
+            inputs[j, :len(x1), 0] = x1
+            masks[j, l1:len(x1)] = 1
+            j += 1
 
-        x1 = x[:n_ctx]
-        last_sent_len = len(encoder([sents[-1]], verbose = False)[0])
-        l1 = len(x1) - last_sent_len
-        print(f"length: {len(x1)} and last sent: {last_sent_len}")
-        inputs[j, :len(x1), 0] = x1
-        masks[j, l1:len(x1)] = 1
-        j += 1
-        last_sent_mean += last_sent_len / n
-        total_len_mean += len(x) / n
 
-    print(last_sent_mean)
-    print(total_len_mean)
-        
     inputs[:, :, 1] = np.arange(n_vocab, n_vocab + n_ctx)
     return inputs, masks
