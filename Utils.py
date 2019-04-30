@@ -2,10 +2,9 @@ import numpy as np
 import tensorflow as tf
 from TextUtils import transform_texts
 import pickle
-import csv
-import os
+import math
+import pandas as pd
 import logging
-import json
 
 def shape_list(x):
     """
@@ -23,17 +22,12 @@ class Logger(object):
         self._logger.info('Train-Logger started ...')
 
     def log(self, **kwargs):
-        print(kwargs)
+        # print(kwargs)
         self._logger.info(kwargs)
 
 def get_paragraphs():
-    paragraphs = []
-    with open("Data/prediction_train.tsv") as fd:
-        rd = csv.reader(fd, delimiter="\t", quotechar='"')
-        for row in rd:
-            paragraphs.append(row[2] + row[3])
-
-    return paragraphs
+    paragraphs = pd.read_csv('./Data/prediction_train.tsv', sep='\t', encoding='latin1')
+    return list(paragraphs['paragraph_text_without_last_sentence'] + paragraphs['paragraph_last_sentence'])
 
 def encode_dataset():
     tokens, masks = transform_texts(get_paragraphs())
@@ -59,7 +53,7 @@ def iter_data(n_batch, n_epochs = None, train = True):
         masks = pickle.load(pkl)
 
     if train:
-        n = len(tokens) - 5000
+        n = len(tokens) - (len(tokens) // 10)
         for epoch in range(n_epochs):
             pi = np.random.permutation(n)
             tokens = tokens[pi]
@@ -71,7 +65,7 @@ def iter_data(n_batch, n_epochs = None, train = True):
                 yield (tokens[i:i + n_batch], masks[i:i + n_batch])
 
     else:
-        n = 5000
+        n = len(tokens) // 10
         tokens, masks = tokens[-n:], masks[-n:]
         pi = np.random.permutation(n)
         tokens, masks = tokens[pi], masks[pi]
@@ -80,3 +74,47 @@ def iter_data(n_batch, n_epochs = None, train = True):
             if i + n_batch > n:
                 break
             yield (tokens[i:i + n_batch], masks[i:i + n_batch])
+
+def gelu(x):
+    """
+    Gaussian Error Linear Unit.
+    This is a smoother version of the RELU.
+    Original paper: https://arxiv.org/abs/1606.08415
+
+    Args:
+      input_tensor: float Tensor to perform activation.
+    Returns:
+      `input_tensor` with the GELU activation applied.
+    """
+    return 0.5 * x * (1 + tf.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * tf.pow(x, 3))))
+
+
+def swish(x):
+    """
+    Swish tends to work better than ReLU on deeper models across a number of challenging data sets.
+    For further information:
+    medium.com/@neuralnets/swish-activation-function-by-google-53e1ea86f820
+
+    Args:
+      input_tensor: float Tensor to perform activation.
+    Returns:
+      `input_tensor` with the swish activation applied.
+    """
+    return x * tf.nn.sigmoid(x)
+
+
+def dropout(input_tensor, dropout_prob, train):
+    """
+      Perform dropout.
+      Args:
+        input_tensor: inpout tensor.
+        dropout_prob: the probability of dropping out a value
+
+      Returns:
+        A version of `input_tensor` with dropout applied.
+    """
+    if not train or dropout_prob is None or dropout_prob == 0.0:
+        return input_tensor
+
+    output = tf.nn.dropout(input_tensor, 1.0 - dropout_prob)
+    return output
