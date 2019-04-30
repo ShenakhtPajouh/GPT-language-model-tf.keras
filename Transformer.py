@@ -5,25 +5,27 @@ from tensorflow import keras
 from tensorflow.keras.models import Model, Sequential
 from Utils import shape_list
 
+
 def gelu(x):
     """
     Gaussian Error Linear Unit.
     This is a smoother version of the RELU.
     Original paper: https://arxiv.org/abs/1606.08415
-    
+
     Args:
       input_tensor: float Tensor to perform activation.
     Returns:
       `input_tensor` with the GELU activation applied.
     """
     return 0.5 * x * (1 + tf.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * tf.pow(x, 3))))
-  
+
+
 def swish(x):
     """
     Swish tends to work better than ReLU on deeper models across a number of challenging data sets.
     For further information:
     medium.com/@neuralnets/swish-activation-function-by-google-53e1ea86f820
-    
+
     Args:
       input_tensor: float Tensor to perform activation.
     Returns:
@@ -31,11 +33,13 @@ def swish(x):
     """
     return x * tf.nn.sigmoid(x)
 
+
 act_fns = {
     'relu': tf.nn.relu,
     'swish': swish,
     'gelu': gelu
 }
+
 
 def dropout(input_tensor, dropout_prob, train):
     """
@@ -43,7 +47,7 @@ def dropout(input_tensor, dropout_prob, train):
       Args:
         input_tensor: inpout tensor.
         dropout_prob: the probability of dropping out a value
-        
+
       Returns:
         A version of `input_tensor` with dropout applied.
     """
@@ -53,26 +57,27 @@ def dropout(input_tensor, dropout_prob, train):
     output = tf.nn.dropout(input_tensor, 1.0 - dropout_prob)
     return output
 
+
 class Norm(Model):
     """
     n_state = shape_list(x)[-1]
     """
 
     def __init__(self, name, n_state, **kwargs):
-        super().__init__(name = name, **kwargs)
+        super().__init__(name=name, **kwargs)
         self.n_state = n_state
-        
+
     def build(self, input_shape):
-        self.g = self.add_weight(name = 'g', shape=[self.n_state], dtype=tf.float32,
+        self.g = self.add_weight(name='g', shape=[self.n_state], dtype=tf.float32,
                                  initializer=tf.keras.initializers.constant(1))
-        self.b = self.add_weight(name = "b", shape=[self.n_state], dtype=tf.float32, 
+        self.b = self.add_weight(name="b", shape=[self.n_state], dtype=tf.float32,
                                  initializer=tf.keras.initializers.constant(0))
         super(Norm, self).build(input_shape)
 
     def call(self, inputs, **kwargs):
         return self._norm(inputs, self.g, self.b, axis=[-1])
 
-    def _norm(self, x, g = None, b = None, e=1e-5, axis=[1]):
+    def _norm(self, x, g=None, b=None, e=1e-5, axis=[1]):
         u = tf.reduce_mean(x, axis=axis, keepdims=True)
         s = tf.reduce_mean(tf.square(x - u), axis=axis, keepdims=True)
         x = (x - u) * tf.rsqrt(s + e)
@@ -82,6 +87,7 @@ class Norm(Model):
 
     def compute_output_shape(self, input_shape):
         return super(Norm, self).compute_output_shape(input_shape)
+
 
 class Conv1D(Model):
 
@@ -94,18 +100,21 @@ class Conv1D(Model):
     def build(self, input_shape):
         self.w = self.add_weight(name='w', shape=[self.rf, self.nx, self.nf], dtype=tf.float32,
                                  initializer=tf.keras.initializers.random_normal(stddev=0.02))
-        self.b = self.add_weight(name="b", shape=[self.nf], dtype = tf.float32, initializer=tf.keras.initializers.constant(0))
-        super(Conv1D, self).build(input_shape = input_shape)
+        self.b = self.add_weight(name="b", shape=[self.nf], dtype=tf.float32,
+                                 initializer=tf.keras.initializers.constant(0))
+        super(Conv1D, self).build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
         if self.rf == 1:
-            c = tf.reshape(tf.matmul(tf.reshape(inputs, [-1, self.nx]), tf.reshape(self.w, [-1, self.nf])) + self.b, shape_list(inputs)[:-1] + [self.nf])
+            c = tf.reshape(tf.matmul(tf.reshape(inputs, [-1, self.nx]), tf.reshape(self.w, [-1, self.nf])) + self.b,
+                           shape_list(inputs)[:-1] + [self.nf])
         else:
             c = tf.nn.conv1d(value=inputs, filters=self.w, stride=1, padding='VALID') + self.b
         return c
 
     def compute_output_shape(self, input_shape):
         return super(Conv1D, self).compute_output_shape(input_shape)
+
 
 class Attention(Model):
     """
@@ -114,7 +123,7 @@ class Attention(Model):
     """
 
     def __init__(self, name, nx, n_state, n_head, attn_pdrop, resid_pdrop, train, scale=False, **kwargs):
-        super().__init__(name = name, **kwargs)
+        super().__init__(name=name, **kwargs)
         self.nx = nx
         self.n_state = n_state
         self.n_head = n_head
@@ -122,8 +131,8 @@ class Attention(Model):
         self.resid_pdrop = resid_pdrop
         self.train = train
         self.scale = scale
-        self.conv1d_c = Conv1D(name = 'c_attn', nx=self.nx,nf=self.n_state*3,rf=1)
-        self.conv1d_a = Conv1D(name = 'c_proj', nx=self.nx,nf=self.n_state,rf=1)
+        self.conv1d_c = Conv1D(name='c_attn', nx=self.nx, nf=self.n_state * 3, rf=1)
+        self.conv1d_a = Conv1D(name='c_proj', nx=self.nx, nf=self.n_state, rf=1)
 
     def call(self, inputs):
         c = self.conv1d_c(inputs)
@@ -178,13 +187,14 @@ class Attention(Model):
     def compute_output_shape(self, input_shape):
         return super(Attention, self).compute_output_shape(input_shape)
 
+
 class MLP(Model):
     def __init__(self, name, n_embd, n_state, afn, resid_pdrop, train):
         """
         The multilayer perceptron is a class of feedforward.
         This module can be used as an one-dimensional convolutional neural network
         or as a fully-connected neural network.
-        
+
         Args:
             name: The name of the model
             n_embd: Embeddings dimension
@@ -193,7 +203,7 @@ class MLP(Model):
             afn: The non-linear activation function in MLP
             train: It is a boolean which is true for training model, false for eval model (to control dropout)
         """
-        super().__init__(name = name)
+        super().__init__(name=name)
         self.n_embd = n_embd
         self.n_state = n_state
         self.act = act_fns[afn]
@@ -208,12 +218,13 @@ class MLP(Model):
         hidden2 = dropout(hidden2, self.resid_pdrop, self.train)
         return hidden2
 
+
 class Block(Model):
     def __init__(self, name, n_vocab, n_embd, n_head, attn_pdrop, resid_pdrop, afn, train, scale):
         """
           The Transformer block is the core of the model.
           It contains attention layer, layer normalization and multilayer perceptron (i.e. feedforward)
-          
+
           Args:
             name: The name of the model
             n_vocab: Size of the vocabulary
@@ -235,7 +246,8 @@ class Block(Model):
         self.train = train
         self.afn = afn
         self.scale = scale
-        self.attn = Attention("/attn", self.n_embd, self.n_embd, self.n_head, self.attn_pdrop, self.resid_pdrop, self.train, self.scale)
+        self.attn = Attention("/attn", self.n_embd, self.n_embd, self.n_head, self.attn_pdrop, self.resid_pdrop,
+                              self.train, self.scale)
         self.norm1 = Norm("/ln_1", self.n_embd)
         self.mlp = MLP("/mlp", self.n_embd, 4 * self.n_embd, self.afn, self.resid_pdrop, self.train)
         self.norm2 = Norm("/ln_2", self.n_embd)
@@ -247,30 +259,32 @@ class Block(Model):
         h = self.norm2(n + m)
         return h
 
+
 class EmbeddingLayer(keras.layers.Layer):
     def __init__(self, name, n_vocab, n_ctx=512, n_embd=768, stddev=0.02, trainable=True):
-        super().__init__(name = name, trainable = trainable)
+        super().__init__(name=name, trainable=trainable)
         self.n_vocab = n_vocab
         self.n_ctx = n_ctx
         self.n_embd = n_embd
         self.stddev = stddev
-    
+
     def build(self, input_shape):
-        self.we = self.add_weight(name = "we", shape = (self.n_ctx + self.n_vocab, self.n_embd), dtype = tf.float32,
-                                 initializer = tf.random_normal_initializer(stddev=self.stddev))
-        super().build(input_shape = input_shape)
-        
+        self.we = self.add_weight(name="we", shape=(self.n_ctx + self.n_vocab, self.n_embd), dtype=tf.float32,
+                                  initializer=tf.random_normal_initializer(stddev=self.stddev))
+        super().build(input_shape=input_shape)
+
     def call(self, inputs):
         return tf.reduce_sum(tf.gather(self.we, inputs), 2)
 
+
 class Transformer(Model):
     def __init__(self, name, n_vocab, n_ctx=512, n_embd=768, n_layer=12, n_head=12, embd_pdrop=0.1, attn_pdrop=0.1,
-                 resid_pdrop=0.1, afn="gelu", train = False, scale = False):
+                 resid_pdrop=0.1, afn="gelu", train=False, scale=False):
         """
           This is the transformer model in
           'https://s3-us-west-2.amazonaws.com/openai-assets/research-covers/language-unsupervised/language_understanding_paper.pdf'
           fine-tuned for language-model.
-          
+
           Args:
             name: The name of the model
             n_vocab: Size of the vocabulary
@@ -298,9 +312,14 @@ class Transformer(Model):
         self.scale = scale
         self.embed = EmbeddingLayer("embedding", n_vocab, n_ctx, n_embd)
 
-        self.transformer_stack = Sequential()
+        self.transformer_stack = []
         for layer in range(n_layer):
-            self.transformer_stack.add(Block("h", n_vocab, n_embd, n_head, attn_pdrop, resid_pdrop, afn, train, scale))
+            self.transformer_stack.append(Block("h", n_vocab, n_embd, n_head, attn_pdrop, resid_pdrop, afn, train, scale))
+
+    def transform(self, hidden):
+        for block in self.transformer_stack:
+            hidden = block(hidden)
+        return hidden
 
     def call(self, inputs):
         """
@@ -308,24 +327,25 @@ class Transformer(Model):
             inputs: it is list of ID and positions of tokens and their mask.
                     tokens shape = (batch size, context length, 2 (IDs and positions))
                     masks shape = (batch size, context length)
-            
+
         Returns:
             logits: shape = (batch size, context length, vocab size)
             losses: shape = (batch size, )
         """
         tokens = tf.reshape(inputs[0], [-1, self.n_ctx, 2])
-        masks1 = tf.reshape(inputs[1], (-1, self.n_ctx))
+        masks = tf.reshape(inputs[1], (-1, self.n_ctx))
+        masks1 = tf.slice(masks, [0, 1], [-1, self.n_ctx - 1])
         masks2 = tf.pad(masks1, [[0, 0], [0, 1]])
-        masks2 = tf.slice(masks2, [0, 1], [-1, self.n_ctx])
-        hidden1 = self.embed(tokens)
+        masks1 = tf.pad(masks1, [[0, 0], [1, 0]])
+        embedding = self.embed(tokens)
         self.embed.we = dropout(self.embed.we, self.embd_pdrop, self.train)
-        hidden2 = self.transformer_stack(hidden1)
-        hidden3 = tf.reshape(hidden2, [-1, self.n_ctx, self.n_embd])
-        hidden3 = tf.reshape(tf.boolean_mask(hidden3, masks2), [-1, self.n_embd])
-        tokens = tf.boolean_mask(tokens[:,:,0], masks1)
-        logits = tf.reshape(tf.matmul(hidden3, self.embed.we[:self.n_vocab, :], transpose_b=True),
+        hidden = self.transform(embedding)
+        hidden = tf.reshape(hidden, [-1, self.n_ctx, self.n_embd])
+        hidden = tf.reshape(tf.boolean_mask(hidden, masks2), [-1, self.n_embd])
+        tokens = tf.reshape(tf.boolean_mask(tokens[:, :, 0], masks1), [-1])
+        logits = tf.reshape(tf.matmul(hidden, self.embed.we[:self.n_vocab, :], transpose_b=True),
                             [-1, self.n_vocab])
         losses = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,
-                                                                labels=tf.reshape(tokens, [-1]))
+                                                                labels=tokens)
         losses = tf.reduce_mean(losses)
         return logits, losses
