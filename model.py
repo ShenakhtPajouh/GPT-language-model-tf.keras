@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.models import Model
-from Utils import shape_list, gelu, swish, dropout
+from utils import shape_list, gelu, swish, dropout
 
 
 act_fns = {
