@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from TextUtils import transform_texts
+from text_utils import transform_texts
 import pickle
 import math
 import pandas as pd
