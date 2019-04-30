@@ -1,37 +1,8 @@
-import math
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras.models import Model, Sequential
-from Utils import shape_list
-
-
-def gelu(x):
-    """
-    Gaussian Error Linear Unit.
-    This is a smoother version of the RELU.
-    Original paper: https://arxiv.org/abs/1606.08415
-
-    Args:
-      input_tensor: float Tensor to perform activation.
-    Returns:
-      `input_tensor` with the GELU activation applied.
-    """
-    return 0.5 * x * (1 + tf.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * tf.pow(x, 3))))
-
-
-def swish(x):
-    """
-    Swish tends to work better than ReLU on deeper models across a number of challenging data sets.
-    For further information:
-    medium.com/@neuralnets/swish-activation-function-by-google-53e1ea86f820
-
-    Args:
-      input_tensor: float Tensor to perform activation.
-    Returns:
-      `input_tensor` with the swish activation applied.
-    """
-    return x * tf.nn.sigmoid(x)
+from tensorflow.keras.models import Model
+from Utils import shape_list, gelu, swish, dropout
 
 
 act_fns = {
@@ -39,24 +10,6 @@ act_fns = {
     'swish': swish,
     'gelu': gelu
 }
-
-
-def dropout(input_tensor, dropout_prob, train):
-    """
-      Perform dropout.
-      Args:
-        input_tensor: inpout tensor.
-        dropout_prob: the probability of dropping out a value
-
-      Returns:
-        A version of `input_tensor` with dropout applied.
-    """
-    if not train or dropout_prob is None or dropout_prob == 0.0:
-        return input_tensor
-
-    output = tf.nn.dropout(input_tensor, 1.0 - dropout_prob)
-    return output
-
 
 class Norm(Model):
     """
