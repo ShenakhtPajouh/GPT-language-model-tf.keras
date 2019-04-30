@@ -1,6 +1,6 @@
 import tensorflow as tf
 import pickle
-from Transformer import Transformer
+from model import Transformer
 from Utils import iter_data, Logger
 import time
 
