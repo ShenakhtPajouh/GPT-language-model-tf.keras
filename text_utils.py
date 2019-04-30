@@ -150,3 +150,26 @@ def transform_texts(texts, n_ctx=512, n_vocab=40478, encoder=None, target = 'LM'
 
     inputs[:, :, 1] = np.arange(n_vocab, n_vocab + n_ctx)
     return inputs, masks
+
+def encode_text(texts, n_ctx=512, n_vocab=40478, encoder=None):
+    if encoder == None:
+        ENCODER_PATH = 'model/encoder_bpe_40000.json'
+        BPE_PATH = 'model/vocab_40000.bpe'
+        encoder = TextEncoder(ENCODER_PATH, BPE_PATH)
+
+    tokens = encoder(texts, verbose=False)
+    n_batch = len(tokens)
+
+    inputs = np.zeros((n_batch, n_ctx, 2), dtype=np.int32)
+
+    total_len_mean = 0.
+    n = len(tokens)
+    j = 0
+    for i, x in enumerate(tokens):
+        x1 = x[:n_ctx]
+        inputs[j, :len(x1), 0] = x1
+        j += 1
+        total_len_mean += len(x) / n
+
+    inputs[:, :, 1] = np.arange(n_vocab, n_vocab + n_ctx)
+    return int(total_len_mean), inputs
