@@ -31,7 +31,8 @@ class Logger(object):
 
 def get_paragraphs():
     paragraphs = pd.read_csv('./Data/prediction_train.tsv', sep='\t', encoding='latin1')
-    return list(paragraphs['paragraph_text_without_last_sentence'] + paragraphs['paragraph_last_sentence'])
+    p =  paragraphs['paragraph_text_without_last_sentence'] + paragraphs['paragraph_last_sentence']
+    return list(p.dropna())
 
 def encode_dataset():
     tokens, masks = transform_texts(get_paragraphs())
