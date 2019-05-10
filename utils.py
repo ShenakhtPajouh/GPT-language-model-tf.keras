@@ -84,34 +84,51 @@ def get_validation():
     n = len(tokens) // 10
     return tokens[-n:], masks[-n:]
 
+def merge(n_batch, p, m):
+    max_len = max(list(map(lambda x: len(x), p)))
+    tokens = np.zeros((n_batch, max_len, 3), dtype=np.int32)
+    masks = np.zeros((n_batch, max_len), dtype=np.int32)
+    for j in range(n_batch):
+        tokens[j, : len(p[j]), :] = p[j]
+        masks[j, : len(p[j])] = m[j]
+
+    return tokens, masks
+
 def iter_data(n_batch, n_epochs = None, train = True):
-    with open('Data/tokens.pkl', 'rb') as pkl:
-        tokens = pickle.load(pkl)
+
+    with open('Data/pair_pars_list.pkl', 'rb') as pkl:
+        pair_pars_list = pickle.load(pkl)
+
     with open('Data/masks.pkl', 'rb') as pkl:
-        masks = pickle.load(pkl)
+        mask_list = pickle.load(pkl)
 
     if train:
-        n = len(tokens) - (len(tokens) // 10)
+        n = len(pair_pars_list) - (len(pair_pars_list) // 10)
         for epoch in range(n_epochs):
             pi = np.random.permutation(n)
-            tokens = tokens[pi]
-            masks = masks[pi]
+            pair_pars_list = pair_pars_list[pi]
+            mask_list = mask_list[pi]
 
             for i in range(0, n, n_batch):
                 if i + n_batch > n:
                     break
-                yield (tokens[i:i + n_batch], masks[i:i + n_batch])
+                m = mask_list[:n_batch]
+                p = pair_pars_list[:n_batch]
+                yield merge(n_batch, p, m)
 
     else:
-        n = len(tokens) // 10
-        tokens, masks = tokens[-n:], masks[-n:]
+        n = len(pair_pars_list) // 10
+        pair_pars_list, mask_list = pair_pars_list[-n:], mask_list[-n:]
         pi = np.random.permutation(n)
-        tokens, masks = tokens[pi], masks[pi]
+        pair_pars_list, mask_list = pair_pars_list[pi], mask_list[pi]
 
         for i in range(0, n, n_batch):
             if i + n_batch > n:
                 break
-            yield (tokens[i:i + n_batch], masks[i:i + n_batch])
+                
+            m = mask_list[:n_batch]
+            p = pair_pars_list[:n_batch]
+            yield merge(n_batch, p, m)
 
 def gelu(x):
     """
