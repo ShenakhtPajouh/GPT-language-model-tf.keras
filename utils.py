@@ -34,10 +34,33 @@ def get_paragraphs():
     p =  paragraphs['paragraph_text_without_last_sentence'] + paragraphs['paragraph_last_sentence']
     return list(p.dropna())
 
-def encode_dataset():
-    tokens, masks = transform_texts(get_paragraphs())
-    with open('Data/tokens.pkl', 'wb') as pkl:
-        pickle.dump(tokens, pkl)
+def encode_dataset(n_ctx = 255, n_vocab = 40478, n_special = 1):
+    with open('Data/tokens.pkl', 'rb') as pkl:
+        tokens = pickle.load(pkl)
+
+    pair_pars_list = []
+    masks = []
+    for i in range(len(tokens) - 1):
+        fst = tokens[i][-n_ctx:]
+        snd = tokens[i + 1][:n_ctx + 1]
+        a = np.zeros((len(fst) + len(snd) + n_special, 3), dtype=np.int32)
+        m = np.zeros(len(fst) + len(snd) + n_special, dtype=np.int32)
+
+        a[: len(fst), 0] = fst
+        a[len(fst), 0] = n_vocab + n_ctx + 1
+        a[1 + len(fst):, 0] = snd
+        m[1 + len(fst):] = 1
+
+        a[: len(fst) + 1, 1] = np.arange(n_vocab, n_vocab + len(fst) + 1)
+        a[len(fst) + 1:, 1] = np.arange(n_vocab, n_vocab + len(snd))
+
+        a[len(fst) + 1:, 2] = 1
+        pair_pars_list.append(a)
+        masks.append(m)
+
+    with open('Data/pair_pars_list.pkl', 'wb') as pkl:
+        pickle.dump(pair_pars_list, pkl)
+
     with open('Data/masks.pkl', 'wb') as pkl:
         pickle.dump(masks, pkl)
 
