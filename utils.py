@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from text_utils import transform_texts
+from text_utils import transform_texts, TextEncoder
 import pickle
 import math
 import pandas as pd
@@ -13,6 +13,10 @@ def shape_list(x):
     ps = x.get_shape().as_list()
     ts = tf.shape(x)
     return [ts[i] if ps[i] is None else ps[i] for i in range(len(ps))]
+
+def stop_gradients(target, mask):
+    mask_h = tf.abs(mask-1)
+    return tf.stop_gradient(mask_h * target) + mask * target
 
 class Logger(object):
     def __init__(self, path):
@@ -35,6 +39,16 @@ def encode_dataset():
         pickle.dump(tokens, pkl)
     with open('Data/masks.pkl', 'wb') as pkl:
         pickle.dump(masks, pkl)
+
+def encode(encoder=None):
+    if encoder == None:
+        ENCODER_PATH = 'model/encoder_bpe_40000.json'
+        BPE_PATH = 'model/vocab_40000.bpe'
+        encoder = TextEncoder(ENCODER_PATH, BPE_PATH)
+
+    tokens = encoder(get_paragraphs(), verbose=False)
+    with open('Data/tokens.pkl', 'wb') as pkl:
+        pickle.dump(tokens, pkl)
 
 
 def get_validation():
