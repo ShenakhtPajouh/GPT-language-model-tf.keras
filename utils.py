@@ -1,10 +1,11 @@
 import numpy as np
 import tensorflow as tf
-from text_utils import transform_texts, TextEncoder
+from text_utils import TextEncoder
 import pickle
 import math
 import pandas as pd
 import logging
+from random import shuffle
 
 def shape_list(x):
     """
@@ -105,9 +106,9 @@ def iter_data(n_batch, n_epochs = None, train = True):
     if train:
         n = len(pair_pars_list) - (len(pair_pars_list) // 10)
         for epoch in range(n_epochs):
-            pi = np.random.permutation(n)
-            pair_pars_list = pair_pars_list[pi]
-            mask_list = mask_list[pi]
+            p_m = list(zip(pair_pars_list, mask_list))
+            shuffle(p_m)
+            pair_pars_list, mask_list = zip(*p_m)
 
             for i in range(0, n, n_batch):
                 if i + n_batch > n:
@@ -125,7 +126,7 @@ def iter_data(n_batch, n_epochs = None, train = True):
         for i in range(0, n, n_batch):
             if i + n_batch > n:
                 break
-                
+
             m = mask_list[:n_batch]
             p = pair_pars_list[:n_batch]
             yield merge(n_batch, p, m)
