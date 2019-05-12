@@ -35,35 +35,44 @@ def get_paragraphs():
     p =  paragraphs['paragraph_text_without_last_sentence'] + paragraphs['paragraph_last_sentence']
     return list(p.dropna())
 
-def encode_dataset(n_ctx = 255, n_vocab = 40478, n_special = 1):
+def encode_dataset(n_ctx = 512, n_vocab = 40478, n_special = 3, n_cut = 256):
     with open('Data/tokens.pkl', 'rb') as pkl:
         tokens = pickle.load(pkl)
 
-    pair_pars_list = []
-    masks = []
-    for i in range(len(tokens) - 1):
-        fst = tokens[i][-n_ctx:]
-        snd = tokens[i + 1][:n_ctx + 1]
-        a = np.zeros((len(fst) + len(snd) + n_special, 3), dtype=np.int32)
-        m = np.zeros(len(fst) + len(snd) + n_special, dtype=np.int32)
+    triple_pars_list = []
+    masks_list = []
 
-        a[: len(fst), 0] = fst
-        a[len(fst), 0] = n_vocab + n_ctx + 1
-        a[1 + len(fst):, 0] = snd
-        m[1 + len(fst):] = 1
+    for i in range(len(tokens) - 2):
+        fst = tokens[i][-(n_cut - 1):]
+        snd = tokens[i + 1][:n_ctx - 1]
+        trd = tokens[i + 2][:n_cut - 1]
+        a = np.zeros((len(fst) + len(snd) + len(trd) + 4, 3), dtype=np.int32)
+        m = np.zeros(len(fst) + len(snd) + len(trd) + 4, dtype=np.int32)
 
-        a[: len(fst) + 1, 1] = np.arange(n_vocab, n_vocab + len(fst) + 1)
-        a[len(fst) + 1:, 1] = np.arange(n_vocab, n_vocab + len(snd))
+        a[0, 0] = n_vocab + n_ctx
+        a[1: 1 + len(fst), 0] = fst
+        a[1 + len(fst), 0] = n_vocab + n_ctx + 1
+        a[2 + len(fst): 2 + len(fst) + len(snd), 0] = snd
+        a[2 + len(fst) + len(snd), 0] = n_vocab + n_ctx + 1
+        a[3 + len(fst) + len(snd) : 3 + len(fst) + len(snd) + len(trd), 0] = trd
+        a[3 + len(fst) + len(snd) + len(trd), 0] = n_vocab + n_ctx + 2
+        m[: 4 + len(fst) + len(snd) + len(trd)] = 1
 
-        a[len(fst) + 1:, 2] = 1
-        pair_pars_list.append(a)
-        masks.append(m)
+        a[: 1 + len(fst), 1] = np.arange(n_vocab, n_vocab + len(fst) + 1)
+        a[1 + len(fst): 2 + len(fst) + len(snd), 1] = np.arange(n_vocab, n_vocab + len(snd) + 1)
+        a[2 + len(fst) + len(snd): 4 + len(fst) + len(snd) + len(trd), 1] = \
+            np.arange(n_vocab, n_vocab + len(trd) + 2)
+
+        a[1 + len(fst): 2 + len(fst) + len(snd), 2] = 1
+        a[2 + len(fst) + len(snd): 4 + len(fst) + len(snd) + len(trd), 2] = 2
+        triple_pars_list.append(a)
+        masks_list.append(m)
 
     with open('Data/pair_pars_list.pkl', 'wb') as pkl:
-        pickle.dump(pair_pars_list, pkl)
+        pickle.dump(triple_pars_list, pkl)
 
     with open('Data/masks.pkl', 'wb') as pkl:
-        pickle.dump(masks, pkl)
+        pickle.dump(masks_list, pkl)
 
 def encode(encoder=None):
     if encoder == None:
