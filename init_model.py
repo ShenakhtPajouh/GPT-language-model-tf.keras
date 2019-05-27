@@ -72,7 +72,7 @@ class Conv1D(Model):
 class Attention(Model):
     """
     nx = shape_list(x)[-1]
-    where x in inputs argm of call
+    where x in inputs args of call
     """
 
     def __init__(self, name, nx, n_state, n_head, scale=False, **kwargs):
@@ -140,16 +140,8 @@ class MLP(Model):
     def __init__(self, name, n_embd, n_state, afn):
         """
         The multilayer perceptron is a class of feedforward.
-        This module can be used as an one-dimensional convolutional neural network
+        This module can be used as a one-dimensional convolutional neural network
         or as a fully-connected neural network.
-
-        Args:
-            name: The name of the model
-            n_embd: Embeddings dimension
-            n_state: ?
-            resid_pdrop: The dropout probability for ?
-            afn: The non-linear activation function in MLP
-            train: It is a boolean which is true for training model, false for eval model (to control dropout)
         """
         super().__init__(name=name)
         self.n_embd = n_embd
@@ -169,18 +161,6 @@ class Block(Model):
         """
           The Transformer block is the core of the model.
           It contains attention layer, layer normalization and multilayer perceptron (i.e. feedforward)
-
-          Args:
-            name: The name of the model
-            n_vocab: Size of the vocabulary
-            n_embd: Embeddings dimension
-            n_layer: Number of the transformer blocks
-            n_head: Number of attention heads
-            attn_pdrop: The dropout probability for attention layer
-            resid_pdrop: The dropout probability for ?
-            afn: The non-linear activation function in MLP
-            train: It is a boolean which is true for training model, false for eval model (to control dropout)
-            scale: ?
         """
         super().__init__(name=name)
         self.n_vocab = n_vocab
@@ -232,12 +212,8 @@ class Transformer(Model):
             n_embd: Embeddings dimension
             n_layer: Number of the transformer blocks
             n_head: Number of attention heads
-            embd_pdrop: The dropout probability for embedding layers
-            attn_pdrop: The dropout probability for attention layer
-            resid_pdrop: The dropout probability for ?
             afn: The non-linear activation function in MLP
-            train: It is a boolean which is true for training model, false for eval model (to control dropout)
-            scale: ?
+            scale: It is a boolean which is true when attention weights are scaled
         """
         super().__init__(name=name)
         self.n_vocab = n_vocab
@@ -255,14 +231,16 @@ class Transformer(Model):
     def call(self, inputs):
         """
         Args:
-            inputs: it is list of ID and positions of tokens and their mask.
+            inputs: it is a list of ID and position of the input, and size of it
+                    length = an integer
                     tokens shape = (batch size, context length, 2 (IDs and positions))
-                    masks shape = (batch size, context length)
 
         Returns:
-            logits: shape = (batch size, context length, vocab size)
-            losses: shape = (batch size, )
+            next_token: shape = (1, 1, 2 (ID and position))
+            mem_k: shape = (number of layers, 1, number of heads, attn hidden size, context size)
+            mem_v: shape = (number of layers, 1, number of heads, context size, attn hidden size)
         """
+
         length = inputs[0]
         tokens = inputs[1]
         hidden = self.embed(tokens)
