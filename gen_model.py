@@ -2,14 +2,13 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.models import Model
-from utils import shape_list, gelu, swish
+from utils import shape_list, gelu, swish, argmax, top_k_sampling, nucleus_sampling, sampling
 
 act_fns = {
     'relu': tf.nn.relu,
     'swish': swish,
     'gelu': gelu
 }
-
 
 class Norm(Model):
     """
@@ -244,7 +243,7 @@ class Transformer(Model):
         for layer in range(n_layer):
             self.transformer_stack.append(Block("h", n_vocab, n_embd, n_head, afn, scale))
 
-    def call(self, inputs):
+    def call(self, inputs, decoder_type = 'argmax', k = 25, p = 0.9, temperature = 0.8):
         """
         Args:
             inputs: it is a list of the previous token, memorized keys and values, and size of the previous tokens.
@@ -279,6 +278,17 @@ class Transformer(Model):
 
         logit = tf.reshape(tf.matmul(hidden[0, :, :], self.embed.we[:self.n_vocab, :], transpose_b=True),
                           [self.n_vocab])
-        next_token = tf.argmax(logit)
+
+        if decoder_type == 'argmax':
+            next_token = argmax(logit)
+
+        elif decoder_type == 'top-k':
+            next_token = top_k_sampling(logit, k, temperature)
+
+        elif decoder_type == 'nucleus':
+            next_token = nucleus_sampling(logit, p)
+
+        else:
+            next_token = sampling(logit, temperature)
 
         return next_token, mem_k, mem_v
